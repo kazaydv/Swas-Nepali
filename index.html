@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="ठूलो स्वरमा घुर्नु एउटा चेतावनीको संकेत हुन सक्छ। तपाईं सुत्दा के हुन्छ हेर्नुहोस्, र नेपालभर निःशुल्क क्यास अन डेलिभरीमा SWAS Mouth Patch अर्डर गर्नुहोस्।">
 <link rel="preconnect" href="https://fonts.googleapis.com/">
-  <img src="https://lj6l2.bemobtrk.com/conversion.gif?cid=OPTIONAL&payout=OPTIONAL&txid=OPTIONAL" width="1" height="1"/>
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
   <link rel="icon" href="Images/Untitled-design-10.png">
 <link rel="apple-touch-icon" href="Images/Untitled-design-10.png">
@@ -288,7 +287,6 @@
       <video controls playsinline preload="metadata" src="Images/5.mp4#t=0.1"></video>
       <video controls playsinline preload="metadata" src="Images/6.mp4#t=0.1"></video>
       <video controls playsinline preload="metadata" src="Images/7.mp4#t=0.1"></video>
-      
     </div>
   </section>
 
@@ -417,6 +415,8 @@
 /* =====================  SETTINGS  ===================== */
 var SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz6XXOcOSYAWCvu2Bm4lQoiH4p8o1iZnOZ0JRc4xZOE84SiT2GO4f22IJmr8ujVgWTZZw/exec'; // Google Sheet order endpoint
 var PIXEL_ID = '1076590971891627';                                              // Meta Pixel ID (optional)
+var BEMOB_PIXEL = 'https://lj6l2.bemobtrk.com/conversion.gif';                  // BeMob conversion pixel
+var BEMOB_CID_PARAM = 'cid';                                                    // URL parameter your BeMob campaign uses for the click ID
 /* ===================================================== */
 
 /* ---------- Meta Pixel ---------- */
@@ -425,6 +425,17 @@ var PIXEL_ID = '1076590971891627';                                              
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq('init', PIXEL_ID); fbq('track', 'PageView'); fbq('track', 'ViewContent', {content_name:'SWAS Mouth Patch', currency:'NPR', value:1200});
 })();
+
+/* ---------- BeMob conversion (fires only after a real order is sent) ---------- */
+var BEMOB_CID = new URLSearchParams(window.location.search).get(BEMOB_CID_PARAM) || '';
+function fireBemobConversion(price){
+  if (!BEMOB_PIXEL) return;
+  var url = BEMOB_PIXEL + '?payout=' + encodeURIComponent(price) +
+            '&txid=SWAS-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  if (BEMOB_CID) url += '&cid=' + encodeURIComponent(BEMOB_CID);
+  var img = new Image(1, 1);
+  img.src = url;
+}
 
 /* ---------- Order form ---------- */
 (function(){
@@ -465,7 +476,7 @@ var PIXEL_ID = '1076590971891627';                                              
     var pack = selected();
     var price = parseInt(pack.getAttribute('data-price'), 10);
 
-    // bots fill the hidden field: pretend it worked, send nothing
+    // bots fill the hidden field: pretend it worked, send nothing (no pixels fire)
     if (form.company.value){ showSuccess(pack.getAttribute('data-label') || pack.value, phone); return; }
 
     if (!SHEET_ENDPOINT || SHEET_ENDPOINT.indexOf('PASTE_') === 0){
@@ -489,15 +500,14 @@ var PIXEL_ID = '1076590971891627';                                              
     btn.disabled = true; btn.textContent = 'तपाईंको अर्डर पठाइँदै…';
 
     /* keepalive:true lets this request survive even if the visitor closes
-       the tab right after tapping submit — same reasoning as the English
-       SWAS site. mode:'no-cors' still means this .then() firing only
-       confirms the browser sent the request, never that Code.gs actually
-       wrote a row to the Sheet — that can only be confirmed in Apps
-       Script's own Executions log. If orders stop appearing in the Sheet,
-       the fix is there, not in this file. */
+       the tab right after tapping submit. mode:'no-cors' still means this
+       .then() firing only confirms the browser sent the request, never that
+       Code.gs actually wrote a row to the Sheet — that can only be confirmed
+       in Apps Script's own Executions log. */
     fetch(SHEET_ENDPOINT, { method: 'POST', mode: 'no-cors', keepalive: true, body: fd })
       .then(function(){
         fbq('track', 'Purchase', { value: price, currency: 'NPR', content_name: pack.value });
+        fireBemobConversion(price);
         showSuccess(pack.getAttribute('data-label') || pack.value, phone);
       })
       .catch(function(){
